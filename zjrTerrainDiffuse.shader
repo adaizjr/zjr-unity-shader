@@ -107,7 +107,11 @@ Shader "zjrshader/TerrainDiffuse" {
                 
                 // 阴影
                 UNITY_LIGHT_ATTENUATION(atten,i,i.worldPos);
-                return lerp(_FogC,texcolor*(atten*.5+.5)*_Color,i.fogData);
+                fixed4 tt = (atten*.5+.5);
+                tt =fixed4(tt.x,tt.y,tt.z, 1);
+                tt = texcolor*tt*_Color;
+                return lerp(_FogC,tt,i.fogData);
+				//return lerp(_FogC,texcolor*_Color,i.fogData);
             }
             ENDCG
         }
