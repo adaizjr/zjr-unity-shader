@@ -13,9 +13,10 @@ Shader "zjrshader/TerrainDiffuse" {
         //自发光颜色
         _Emission ("Emission", 2D) = "black" {}
         
-        _FogDistant("Fog Distant", float) = 400
-        _FogChange("Fog Change", float) = 50
+        _FogStart("Fog start", float) = 400
+        _FogEnd("Fog end", float) = 450
         _FogC("Fog Color", Color) = (.65,.81,.94,.77)
+        _Ambient("Ambient", Color) = (1,1,1,1)
     }
     SubShader
     {
@@ -48,8 +49,9 @@ Shader "zjrshader/TerrainDiffuse" {
             float4 _Blend_ST;
             float4 _Emission_ST;
             float4 _FogC;
-            float _FogDistant;
-            float _FogChange;
+            float _FogStart;
+            float _FogEnd;
+            float4 _Ambient;
 
             struct v2f
             {
@@ -58,6 +60,7 @@ Shader "zjrshader/TerrainDiffuse" {
                 float3 color : COLOR;
                 SHADOW_COORDS(1)
                 float fogData : TEXCOORD2;
+                //UNITY_FOG_COORDS(2)
                 float3 worldPos : TEXCOORD3; 
             };
             float4 _MainTex_ST;
@@ -66,8 +69,6 @@ Shader "zjrshader/TerrainDiffuse" {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
                 o.uv = v.texcoord;
-
-                o.pos = UnityObjectToClipPos(v.vertex);
 
                 // 获取光源世界坐标系中的方向,并进行归一化处理
                 fixed3 world_light = normalize(_WorldSpaceLightPos0.xyz);
@@ -79,7 +80,7 @@ Shader "zjrshader/TerrainDiffuse" {
                 fixed3 diffuse = _LightColor0.rgb  * saturate(dot(world_normal, world_light));
 
                 // 最终颜色为:环境光和漫反射插值
-                o.color =  diffuse+.5;//UNITY_LIGHTMODEL_AMBIENT.xyz;
+                o.color =  diffuse+_Ambient;//UNITY_LIGHTMODEL_AMBIENT.xyz;
 				
 				o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
 
@@ -88,7 +89,8 @@ Shader "zjrshader/TerrainDiffuse" {
 				// 计算物体到相机的距离。UnityObjectToViewPos：顶点到相机位置的向量；length():求向量的长度
                 float z = length(UnityObjectToViewPos(v.vertex).xyz);
                 // 计算雾化系数
-                o.fogData = saturate((_FogDistant - z)/_FogChange);
+                o.fogData = 1-saturate((z-_FogStart)/(_FogEnd-_FogStart));
+                //UNITY_TRANSFER_FOG(o,o.pos);
 
 
                 return o;
@@ -110,7 +112,14 @@ Shader "zjrshader/TerrainDiffuse" {
                 fixed4 tt = (atten*.5+.5);
                 tt =fixed4(tt.x,tt.y,tt.z, 1);
                 tt = texcolor*tt*_Color;
+                
+                //UNITY_APPLY_FOG(i.fogCoord, tt);
+                //return tt;
+                
+                //return lerp(unity_FogColor,tt,i.fogData);
+                
                 return lerp(_FogC,tt,i.fogData);
+				
 				//return lerp(_FogC,texcolor*_Color,i.fogData);
             }
             ENDCG
