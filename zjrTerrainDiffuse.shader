@@ -56,7 +56,7 @@ Shader "zjrshader/TerrainDiffuse" {
                 
                 fixed3 worldNormal : TEXCOORD5;  
                 
-                half2 uvLM : TEXCOORD4;
+                half2 uvLM : TEXCOORD6;
             };
             float4 _MainTex_ST;
             v2f vert(appdata_full  v)
