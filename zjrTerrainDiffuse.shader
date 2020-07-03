@@ -1,22 +1,30 @@
-Shader "zjrshader/TerrainDiffuse" {
+// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
+
+// Upgrade NOTE: replaced '_World2Object' with 'unity_WorldToObject'
+
+// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
+
+// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
+// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
+
+// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
+
+// Upgrade NOTE: replaced '_World2Object' with 'unity_WorldToObject'
+
+Shader "myshader/TerrainDiffuse" {
     Properties
     {
-        _Color("Color", Color) = (1,1,1,1)
-
-    	//四张贴图
         _Texture0 ("Texture 1", 2D) = "black" {}
         _Texture1 ("Texture 2", 2D) = "black" {}
         _Texture2 ("Texture 3", 2D) = "black" {}
         _Texture3 ("Texture 4", 2D) = "black" {}
-        //贴图的混合
-        _Blend ("Blend", 2D) = "black" {}
-        //自发光颜色
+        _UV ("UV", 2D) = "black" {}
         _Emission ("Emission", 2D) = "black" {}
-        
-        _FogStart("Fog start", float) = 400
-        _FogEnd("Fog end", float) = 450
+        _SkyC("Sky Color", Color) = (.5,.5,.5,.5)
         _FogC("Fog Color", Color) = (.65,.81,.94,.77)
-        _Ambient("Ambient", Color) = (1,1,1,1)
+        _fogend("fog end",float)=450
+        _fogstart("fog start",float)=400
     }
     SubShader
     {
@@ -25,9 +33,9 @@ Shader "zjrshader/TerrainDiffuse" {
 
         Pass
         {
-        	Tags{"RenderType"="Opaque"  "LightMode"="ForwardBase" }
-        	
-        	CGPROGRAM
+            Tags{"RenderType"="Opaque"  "LightMode"="ForwardBase" }
+            
+            CGPROGRAM
             #pragma vertex vert
             #pragma fragment frag
             #pragma multi_compile_fwdbase
@@ -35,92 +43,89 @@ Shader "zjrshader/TerrainDiffuse" {
             #include "Lighting.cginc"
             #include "AutoLight.cginc"
 
-            float4 _Color;
             sampler2D _Texture0;
             sampler2D _Texture1;
             sampler2D _Texture2;
             sampler2D _Texture3;
-            sampler2D _Blend;
+            sampler2D _UV;
             sampler2D _Emission;
             float4 _Texture0_ST;
             float4 _Texture1_ST;
             float4 _Texture2_ST;
             float4 _Texture3_ST;
-            float4 _Blend_ST;
+            float4 _UV_ST;
             float4 _Emission_ST;
             float4 _FogC;
-            float _FogStart;
-            float _FogEnd;
-            float4 _Ambient;
+            float4 _SkyC;
+            float _fogend;
+            float _fogstart;
 
             struct v2f
             {
                 float4 pos:POSITION;
-                float2 uv:TEXCOORD0;
-                float3 color : COLOR;
-                SHADOW_COORDS(1)
-                float fogData : TEXCOORD2;
-                //UNITY_FOG_COORDS(2)
-                float3 worldPos : TEXCOORD3; 
+                float2 uv0:TEXCOORD0;
+                //fixed3  SHLighting : COLOR;
+                float fogData : TEXCOORD1;
+                float3 worldPos : TEXCOORD2; 
+                LIGHTING_COORDS(3, 4)
+                
+                fixed3 worldNormal : TEXCOORD5;  
+                
+                half2 uvLM : TEXCOORD4;
             };
             float4 _MainTex_ST;
-            v2f vert(appdata_base v)
+            v2f vert(appdata_full  v)
             {
                 v2f o;
                 o.pos = UnityObjectToClipPos(v.vertex);
-                o.uv = v.texcoord;
-
-                // 获取光源世界坐标系中的方向,并进行归一化处理
-                fixed3 world_light = normalize(_WorldSpaceLightPos0.xyz);
-
-                // 获取法线世界坐标系中的方向,并进行归一化处理
-                fixed3 world_normal = normalize(mul(v.normal, (float3x3)unity_WorldToObject));
-
-                // 兰伯特漫反射计算公式为:光照颜色和强度变量(_LightColor0) * 漫反射系数(_Diffuse) * 光源方向(_WorldSpaceLightPos0)与法线方向(normal)的非负值点积
-                fixed3 diffuse = _LightColor0.rgb  * saturate(dot(world_normal, world_light));
-
-                // 最终颜色为:环境光和漫反射插值
-                o.color =  diffuse+_Ambient;//UNITY_LIGHTMODEL_AMBIENT.xyz;
-				
-				o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
-
-                TRANSFER_SHADOW(o);
-
-				// 计算物体到相机的距离。UnityObjectToViewPos：顶点到相机位置的向量；length():求向量的长度
+                o.uv0 = v.texcoord;
+                o.worldPos = mul(unity_ObjectToWorld, v.vertex).xyz;
+                o.worldNormal = mul(v.normal, (float3x3)unity_WorldToObject);  
+                
+                // 计算物体到相机的距离。UnityObjectToViewPos：顶点到相机位置的向量；length():求向量的长度
                 float z = length(UnityObjectToViewPos(v.vertex).xyz);
                 // 计算雾化系数
-                o.fogData = 1-saturate((z-_FogStart)/(_FogEnd-_FogStart));
-                //UNITY_TRANSFER_FOG(o,o.pos);
-
+                if (_fogend>_fogstart)
+                    o.fogData = saturate((_fogend - z)/(_fogend-_fogstart));
+                else
+                    o.fogData = 1;
+                
+                o.uvLM = v.texcoord1.xy * unity_LightmapST.xy + unity_LightmapST.zw;
+                
+                TRANSFER_VERTEX_TO_FRAGMENT(o);
 
                 return o;
             }
 
             half4 frag(v2f i):COLOR
             {
-            	fixed4 t0 = tex2D(_Texture0 , TRANSFORM_TEX(i.uv,_Texture0));
-                fixed4 t1 = tex2D(_Texture1 , TRANSFORM_TEX(i.uv,_Texture1));
-                fixed4 t2 = tex2D(_Texture2 , TRANSFORM_TEX(i.uv,_Texture2));
-                fixed4 t3 = tex2D(_Texture3 , TRANSFORM_TEX(i.uv,_Texture3));
-                fixed4 blend = tex2D(_Blend , TRANSFORM_TEX(i.uv,_Blend));
-                fixed4 em = tex2D(_Emission , TRANSFORM_TEX(i.uv,_Emission));
+                fixed3 ambient = UNITY_LIGHTMODEL_AMBIENT.xyz;  
+                fixed3 worldNormal = normalize(i.worldNormal);  
+                fixed3 worldLightDir = normalize(_WorldSpaceLightPos0.xyz);
+                fixed3 halfLambert = saturate(dot(worldNormal, worldLightDir)*.5 + 0.5);
+                fixed3 diffuse = _LightColor0.rgb * halfLambert; 
+                fixed3 color = ambient + diffuse;
+                fixed3 SHLighting= ShadeSH9(float4(worldNormal,1)) ;
 
-                fixed4 texcolor = fixed4((((t0 * blend.x + t1 * blend.y + t2 * blend.z)*blend.w+t3*(1-blend.w))*fixed4(i.color, 1.0)).xyz,1)+em;
+                fixed4 t0 = tex2D(_Texture0 , TRANSFORM_TEX(i.uv0,_Texture0));
+                fixed4 t1 = tex2D(_Texture1 , TRANSFORM_TEX(i.uv0,_Texture1));
+                fixed4 t2 = tex2D(_Texture2 , TRANSFORM_TEX(i.uv0,_Texture2));
+                fixed4 t3 = tex2D(_Texture3 , TRANSFORM_TEX(i.uv0,_Texture3));
+                fixed4 uv = tex2D(_UV , TRANSFORM_TEX(i.uv0,_UV));
+                fixed4 em = tex2D(_Emission , TRANSFORM_TEX(i.uv0,_Emission));
+
+                fixed4 texcolor = ((t0 * uv.x + t1 * uv.y + t2 * uv.z)*uv.w+t3*(1-uv.w));//+em;//*fixed4(i.color, 1.0);
                 
-                // 阴影
+                fixed3 lm = DecodeLightmap (UNITY_SAMPLE_TEX2D(unity_Lightmap, i.uvLM.xy))*SHLighting;          
+
+                //_FogC= (.65,.81,.94,.77);
+
                 UNITY_LIGHT_ATTENUATION(atten,i,i.worldPos);
-                fixed4 tt = (atten*.5+.5);
-                tt =fixed4(tt.x,tt.y,tt.z, 1);
-                tt = texcolor*tt*_Color;
-                
-                //UNITY_APPLY_FOG(i.fogCoord, tt);
-                //return tt;
-                
-                //return lerp(unity_FogColor,tt,i.fogData);
-                
-                return lerp(_FogC,tt,i.fogData);
-				
-				//return lerp(_FogC,texcolor*_Color,i.fogData);
+                //float atten =LIGHT_ATTENUATION(i);
+                return fixed4(lerp(_FogC,texcolor*(atten*diffuse+lm+ambient+_SkyC)+em,i.fogData).xyz,1);
+
+                // 插值得到雾化后的颜色
+                return fixed4(lerp(_FogC,texcolor,i.fogData).xyz,1);
             }
             ENDCG
         }
