@@ -1,18 +1,4 @@
-// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
-
-// Upgrade NOTE: replaced '_World2Object' with 'unity_WorldToObject'
-
-// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
-
-// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
-// Upgrade NOTE: replaced '_Object2World' with 'unity_ObjectToWorld'
-
-// Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
-
-// Upgrade NOTE: replaced '_World2Object' with 'unity_WorldToObject'
-
-Shader "myshader/TerrainDiffuse" {
+Shader "zjrshader/TerrainDiffuse" {
     Properties
     {
         _Texture0 ("Texture 1", 2D) = "black" {}
@@ -28,7 +14,6 @@ Shader "myshader/TerrainDiffuse" {
     }
     SubShader
     {
-
         Blend SrcAlpha OneMinusSrcAlpha
 
         Pass
@@ -104,7 +89,6 @@ Shader "myshader/TerrainDiffuse" {
                 fixed3 worldLightDir = normalize(_WorldSpaceLightPos0.xyz);
                 fixed3 halfLambert = saturate(dot(worldNormal, worldLightDir)*.5 + 0.5);
                 fixed3 diffuse = _LightColor0.rgb * halfLambert; 
-                fixed3 color = ambient + diffuse;
                 fixed3 SHLighting= ShadeSH9(float4(worldNormal,1)) ;
 
                 fixed4 t0 = tex2D(_Texture0 , TRANSFORM_TEX(i.uv0,_Texture0));
@@ -125,7 +109,7 @@ Shader "myshader/TerrainDiffuse" {
                 return fixed4(lerp(_FogC,texcolor*(atten*diffuse+lm+ambient+_SkyC)+em,i.fogData).xyz,1);
 
                 // 插值得到雾化后的颜色
-                return fixed4(lerp(_FogC,texcolor,i.fogData).xyz,1);
+                //return fixed4(lerp(_FogC,texcolor,i.fogData).xyz,1);
             }
             ENDCG
         }
